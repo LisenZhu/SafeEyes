@@ -235,8 +235,10 @@ class BreakScheduler:
         self.idle_grace = idle_grace
         self.strict = strict
 
+        # active time trackers
         self.active_seconds_since_micro = 0
         self.active_seconds_since_long = 0
+
         self.running = True
         self.in_break = False
 
@@ -254,6 +256,11 @@ class BreakScheduler:
         with self._lock:
             self.active_seconds_since_long = 0
             self.next_long_in = self.long_interval
+            # when a long break occurs we also clear micro counters so that
+            # the next cycle starts fresh (avoids an immediate micro break after
+            # the long one)
+            self.active_seconds_since_micro = 0
+            self.next_micro_in = self.micro_interval
 
     def tick_active_time(self, delta=1):
         with self._lock:
@@ -266,6 +273,9 @@ class BreakScheduler:
         return self.active_seconds_since_micro >= self.micro_interval
 
     def need_long(self):
+        # long break is determined solely by the long interval.  the micro counter
+        # is reset when a long break happens so micro and long timers no longer
+        # coincide.
         return self.active_seconds_since_long >= self.long_interval
 
 # -------------------------
@@ -443,7 +453,7 @@ def parse_args():
     p = argparse.ArgumentParser(description="Stretchly/SafeEyes-like break reminder (no-install, pure Python).")
     p.add_argument("--micro-interval", type=int, default=15, help="Minutes between micro-breaks (default: 10)")
     p.add_argument("--micro-duration", type=int, default=20, help="Seconds of a micro-break (default: 20)")
-    p.add_argument("--long-interval", type=int, default=30, help="Minutes between long breaks (default: 30)")
+    p.add_argument("--long-interval", type=int, default=45, help="Minutes between long breaks (default: 30)")
     p.add_argument("--long-duration", type=int, default=600, help="Seconds of a long break (default: 300 = 5min)")
     p.add_argument("--idle-grace", type=int, default=60, help="Idle seconds that pause the active timer (default: 60)")
     p.add_argument("--strict", action="store_true", help="Strict Mode: you can't skip breaks early.")
